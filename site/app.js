@@ -282,7 +282,8 @@
     out.replaceChildren(...nodes);
   }
   function gauge(lo, typ, hi, ask) {
-    const W = 560, H = 86, m = 16;
+    // draw at the real width so the labels stay legible on phones
+    const W = Math.max(260, Math.min(560, $("#checkResult").clientWidth - 56)), H = 86, m = 16;
     const vmin = Math.min(lo, ask ?? lo) * 0.9, vmax = Math.max(hi, ask ?? hi) * 1.08;
     const x = lin(vmin, vmax, m, W - m);
     const svg = sv("svg", { viewBox: `0 0 ${W} ${H}`, class: "gauge", role: "img",
@@ -305,6 +306,7 @@
   $("#bedsSel").addEventListener("change", onBeds);
   $("#typeSel").addEventListener("change", renderCheck);
   $("#askInput").addEventListener("input", renderCheck);
+  addEventListener("resize", () => { clearTimeout(renderCheck.t); renderCheck.t = setTimeout(renderCheck, 150); });
   $("#checkForm").addEventListener("submit", (e) => e.preventDefault());
   function setArea(label) {
     $("#areaInput").value = label; onArea();
