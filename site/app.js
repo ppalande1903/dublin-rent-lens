@@ -82,7 +82,8 @@
     return;
   }
   const byId = Object.fromEntries(dists.map((d) => [d.id, d]));
-  $("#kicker").textContent = `Official RTB rents to ${meta.rent_data_to} · sales to ${new Date(meta.sales_to).toLocaleDateString("en-IE", { month: "short", year: "numeric" })}`;
+  $("#issueLeft").textContent = `Vol. 1 · A field guide to renting in Dublin`;
+  $("#issueRight").textContent = `Rents to ${meta.rent_data_to} · sales to ${new Date(meta.sales_to).toLocaleDateString("en-IE", { month: "short", year: "numeric" })} · updated weekly`;
 
   /* ---------------- scales ---------------- */
   function niceTicks(min, max, n = 5) {
@@ -95,7 +96,7 @@
   const lin = (d0, d1, r0, r1) => (v) => r0 + ((v - d0) / (d1 - d0 || 1)) * (r1 - r0);
 
   /* ---------------- line chart (crosshair + tooltip) ---------------- */
-  function lineChart(box, { series, band, height = 300, yFmt = euro, endLabels = true, title = "" }) {
+  function lineChart(box, { series, band, height = 300, yFmt = euro, endLabels = true, title = "", notes = [] }) {
     box.replaceChildren();
     const W = Math.max(320, box.clientWidth), H = height;
     const m = { l: 56, r: endLabels ? 92 : 16, t: 12, b: 28 };
@@ -139,6 +140,13 @@
         tx.textContent = `${s.name} ${yFmt(v)}`; svg.append(tx);
       });
     }
+    // handwritten notes: text offset from a point, with a little curved arrow
+    notes.forEach(({ t, v, text, dx = 20, dy = -30 }) => {
+      const px = x(t), py = y(v), tx = px + dx, ty = py + dy;
+      const bend = dx > 0 ? -12 : 12;
+      svg.append(sv("path", { class: "annot-arrow", d: `M${tx - Math.sign(dx) * 4},${ty + (dy < 0 ? 6 : -14)} Q${px + dx / 2 + bend},${py + dy / 2} ${px + Math.sign(dx) * 3},${py + Math.sign(dy) * 4}` }));
+      const tt = sv("text", { x: tx, y: ty, class: "annot", "text-anchor": dx > 0 ? "start" : "end" }); tt.textContent = text; svg.append(tt);
+    });
     // crosshair layer
     const hair = sv("line", { y1: m.t, y2: H - m.b, class: "crosshair", visibility: "hidden" });
     const dots = series.map((s) => sv("circle", { r: 4, class: "dot", visibility: "hidden" }, { fill: s.color }));
@@ -205,6 +213,31 @@
     return t;
   }
 
+  /* ---------------- Georgian door illustration ---------------- */
+  function georgianDoor(colour) {
+    const ink = "#1d2b33", stone = "#e7dcc6", glass = "#fbefc1", brass = "#c9a24a";
+    const svg = sv("svg", { viewBox: "0 0 120 190", "aria-hidden": "true" });
+    const add = (tag, attrs) => { const e = sv(tag, attrs); svg.append(e); return e; };
+    add("rect", { x: 3, y: 44, width: 14, height: 146, fill: stone, stroke: ink, "stroke-width": 1.5 });
+    add("rect", { x: 103, y: 44, width: 14, height: 146, fill: stone, stroke: ink, "stroke-width": 1.5 });
+    add("path", { d: "M12,54 A48,48 0 0 1 108,54 Z", fill: stone, stroke: ink, "stroke-width": 1.5 });
+    add("path", { d: "M20,54 A40,40 0 0 1 100,54 Z", fill: glass, stroke: ink, "stroke-width": 1.5 });
+    for (let a = 15; a < 180; a += 30) {
+      const r = (a * Math.PI) / 180;
+      add("line", { x1: 60, y1: 54, x2: 60 + 40 * Math.cos(r), y2: 54 - 40 * Math.sin(r), stroke: ink, "stroke-width": 1.1 });
+    }
+    add("path", { d: "M50,54 A10,10 0 0 1 70,54 Z", fill: ink });
+    add("rect", { x: 20, y: 56, width: 80, height: 130, fill: colour, stroke: ink, "stroke-width": 2 });
+    [[27, 64], [63, 64], [27, 104], [63, 104], [27, 146], [63, 146]].forEach(([px, py], k) =>
+      add("rect", { x: px, y: py, width: 30, height: k > 3 ? 32 : 34, fill: "none", stroke: "rgba(0,0,0,.28)", "stroke-width": 1.5, rx: 1 }));
+    add("circle", { cx: 60, cy: 96, r: 4, fill: brass, stroke: ink, "stroke-width": 1 });
+    add("circle", { cx: 60, cy: 104, r: 6, fill: "none", stroke: brass, "stroke-width": 2 });
+    add("rect", { x: 47, y: 138, width: 26, height: 5, rx: 1, fill: brass, stroke: ink, "stroke-width": .8 });
+    add("circle", { cx: 91, cy: 124, r: 3.2, fill: brass, stroke: ink, "stroke-width": .8 });
+    add("rect", { x: 8, y: 185, width: 104, height: 5, fill: stone, stroke: ink, "stroke-width": 1.2 });
+    return svg;
+  }
+
   /* ---------------- hero tiles ---------------- */
   (function tiles() {
     const L = dub.latest, peak = dub.peak_2007_08, f4 = dub.forecast[dub.forecast.length - 1];
@@ -216,11 +249,14 @@
       { label: `Median Dublin sale price, ${meta.yield_year}`, value: euro(price?.[1]), foot: [`${(price?.[2] || 0).toLocaleString("en-IE")} market sales`] },
     ];
     const box = $("#tiles");
-    box.replaceChildren(...data.map((d) => {
-      const c = el("div", { class: "tile card" });
+    const colours = ["#c63b2f", "#1f6f54", "#2b4f8e", "#e0a526"];
+    box.replaceChildren(...data.map((d, i) => {
+      const c = el("div", { class: "door" });
+      const plaque = el("div", { class: "plaque" });
       const foot = el("div", { class: "tfoot" });
-      d.foot.forEach((part, i) => foot.append(i === 1 && d.foot.length === 3 ? el("span", { class: "delta-up" }, part) : document.createTextNode(part)));
-      c.append(el("div", { class: "label" }, d.label), el("div", { class: "value" }, d.value), foot);
+      d.foot.forEach((part, k) => foot.append(k === 1 && d.foot.length === 3 ? el("span", { class: "delta-up" }, part) : document.createTextNode(part)));
+      plaque.append(el("div", { class: "label" }, d.label), el("div", { class: "value" }, d.value), foot);
+      c.append(georgianDoor(colours[i]), plaque);
       return c;
     }));
   })();
@@ -256,22 +292,26 @@
   }
   function renderCheck() {
     const out = $("#checkResult");
-    if (!current) { out.replaceChildren(el("p", { class: "muted" }, "Choose an area from the list to see its typical rent.")); return; }
+    if (!current) { out.replaceChildren(el("div", { class: "receipt-paper" }), el("p", { class: "muted" }, "Choose an area from the list to see its typical rent.")); return; }
     const r = current.rows.find((x) => x[C.beds] === $("#bedsSel").value && x[C.ptype] === $("#typeSel").value);
     if (!r) return;
     const [typ, lo, hi] = [r[C.typical], r[C.lo], r[C.hi]];
     const ask = parseFloat($("#askInput").value);
+    const rh = el("div", { class: "r-head" });
+    rh.append(el("span", {}, "Rent check"), el("span", {}, `Nowcast · ${meta.nowcast_for}`));
+    const line = (k, v) => { const l = el("div", { class: "line" }); l.append(el("span", {}, k), el("span"), el("b", {}, v)); return l; };
     const head = el("div", { class: "typical" });
-    head.append(el("span", { class: "big" }, euro(typ)), el("span", {}, "/ month typical"),
-      el("span", { class: "range" }, `80% range ${euro(lo)}–${euro(hi)}`));
-    const nodes = [head];
+    head.append(el("span", { class: "big" }, euro(typ)), el("span", { class: "per" }, "/ month, typical"));
+    const nodes = [el("div", { class: "receipt-paper" }), rh,
+      line("Area", areaLabel(r)), line("Size", BEDS[r[C.beds]]), line("Type", TYPES[r[C.ptype]]),
+      line("Asking", ask > 0 ? euro(ask) : "—"), head, el("div", { class: "range" }, `80% range ${euro(lo)}–${euro(hi)}`)];
     if (ask > 0) {
       const diff = ask / typ - 1;
       let cls, icon, text;
-      if (ask > hi) { const big = diff > 0.15; cls = big ? "critical" : "warning"; icon = big ? "!!" : "!"; text = `${big ? "Well above" : "Above"} typical (${pct(diff, 0)})`; }
-      else if (ask < lo) { cls = "good"; icon = "↓"; text = `Below typical (${pct(diff, 0)}): check what's included`; }
-      else { cls = "good"; icon = "✓"; text = `In line with typical (${pct(diff, 0)})`; }
-      const v = el("div", { class: `verdict ${cls}` }); v.append(el("i", { "aria-hidden": "true" }, icon), document.createTextNode(text));
+      if (ask > hi) { const big = diff > 0.15; cls = big ? "critical" : "warning"; icon = big ? "!!" : "!"; text = `${big ? "Way over" : "Above typical"} ${pct(diff, 0)}`; }
+      else if (ask < lo) { cls = "good"; icon = "↓"; text = `Below typical ${pct(diff, 0)}`; }
+      else { cls = "good"; icon = "✓"; text = `Fair · ${pct(diff, 0)}`; }
+      const v = el("div", { class: `stamp ${cls}`, role: "status" }); v.append(el("i", { "aria-hidden": "true" }, icon), document.createTextNode(text));
       nodes.push(v);
     }
     nodes.push(gauge(lo, typ, hi, ask > 0 ? ask : null));
@@ -362,8 +402,8 @@
     });
     const river = sv("svg", { class: "liffey", viewBox: "0 0 100 14", preserveAspectRatio: "none", "aria-hidden": "true" });
     river.append(sv("path", { d: "M0,7 C10,3 20,11 30,7 S50,3 60,7 S75,11 82,7 L100,7" }));
-    const bay = el("div", { "aria-hidden": "true" }, "Dublin Bay");
-    Object.assign(bay.style, { gridColumn: "5", gridRow: "3 / span 3", display: "grid", placeItems: "center", color: "var(--muted)", fontStyle: "italic", fontSize: ".82rem" });
+    const bay = el("div", { class: "bay", "aria-hidden": "true" }, "~ Dublin Bay ~");
+    Object.assign(bay.style, { gridColumn: "5", gridRow: "3 / span 3" });
     box.replaceChildren(...tiles, bay, river);
     // legend
     const lg = $("#mapLegend");
@@ -387,7 +427,7 @@
     const fc = [[last[0], last[1], last[1]], ...d.forecast.map((f) => [f.t, f.lo, f.hi])];
     const fcMid = [last, ...d.forecast.map((f) => [f.t, f.mid])];
     const head = el("div");
-    head.append(el("h3", {}, `${d.id} · ${NAMES[d.id]}`));
+    head.append(el("h3", {}, d.id), el("span", { class: "area-name" }, NAMES[d.id]));
     const nbs = el("div", { class: "nbs" });
     d.neighbourhoods.slice(0, 14).forEach((n) => {
       const lab = `${n}, Dublin ${d.id.slice(1)}`;
@@ -465,7 +505,12 @@
     box.replaceChildren();
     box.append(legend(series.map((s) => ({ label: s.name, color: s.color }))));
     const c = el("div"); box.append(c);
-    lineChart(c, { series, height: 300, title: "Dublin average rent by number of bedrooms" });
+    const two = series[1].points;
+    const peak = two.filter(([t]) => t <= 8).reduce((a, b) => (b[1] > a[1] ? b : a));
+    const low = two.filter(([t]) => t > 8 && t <= 30).reduce((a, b) => (b[1] < a[1] ? b : a));
+    lineChart(c, { series, height: 300, title: "Dublin average rent by number of bedrooms",
+      notes: [{ t: peak[0], v: peak[1], text: `${yearOf(peak[0])} peak`, dx: 26, dy: -34 },
+              { t: low[0], v: low[1], text: `the ${yearOf(low[0])} low`, dx: 30, dy: 40 }] });
     const ts = series[0].points.map((p) => p[0]).filter((t) => (t + 3) % 4 === 3); // Q4 each year
     $("#bedsTable").replaceChildren(table(["Quarter", ...series.map((s) => s.name)],
       ts.map((t) => [qlabel(t), ...series.map((s) => euro(s.points.find((p) => p[0] === t)?.[1]))])));
