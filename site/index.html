@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dublin Rent Lens</title>
+  <meta name="description" content="What Dublin really costs to rent, district by district, and whether a listing is fair. Built on official RTB and Property Price Register data with calibrated machine-learning nowcasts." />
+  <meta property="og:title" content="Dublin Rent Lens" />
+  <meta property="og:description" content="Is that Dublin rent fair? A calibrated nowcast for 600+ area and unit combinations, built on official RTB data." />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23256abf'/><path d='M7 22 13 15 18 19 25 10' stroke='white' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="top">
+    <div class="wrap top-inner">
+      <a class="brand" href="#"><span class="logo" aria-hidden="true"></span>Dublin Rent Lens</a>
+      <nav class="nav" aria-label="Sections">
+        <a href="#check">Check a rent</a>
+        <a href="#map">Districts</a>
+        <a href="#buy">Rent vs buy</a>
+        <a href="#methods">Methods</a>
+      </nav>
+      <button class="theme" id="theme" type="button" aria-label="Toggle dark mode">◐</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- ================= HERO ================= -->
+    <section class="hero wrap">
+      <p class="kicker" id="kicker">Official RTB &amp; Property Price Register data</p>
+      <h1>What Dublin really costs to rent, and whether that listing is fair.</h1>
+      <p class="lede">
+        Rent data in Ireland arrives months late and averages hide what matters. This tool rebuilds 18 years of
+        rents for all 22 postal districts, nowcasts today's typical rent for 600+ area and unit combinations with
+        calibrated ranges, and puts renting next to buying.
+      </p>
+      <div class="tiles" id="tiles" aria-live="polite"></div>
+    </section>
+
+    <!-- ================= CHECKER ================= -->
+    <section class="band" id="check">
+      <div class="wrap">
+        <div class="section-head">
+          <h2>Is this rent fair?</h2>
+          <p class="sub" id="checkSub">Pick an area and unit type, then enter the asking rent.</p>
+        </div>
+        <div class="checker card">
+          <form class="check-form" id="checkForm" autocomplete="off">
+            <label>Area
+              <input id="areaInput" list="areaList" placeholder="Start typing: Rathmines, Swords, Dublin 8…" required />
+              <datalist id="areaList"></datalist>
+            </label>
+            <label>Bedrooms
+              <select id="bedsSel"></select>
+            </label>
+            <label>Property type
+              <select id="typeSel"></select>
+            </label>
+            <label>Asking rent (€ / month)
+              <input id="askInput" type="number" inputmode="numeric" min="200" max="20000" step="10" placeholder="e.g. 2,400" />
+            </label>
+          </form>
+          <div class="check-result" id="checkResult">
+            <p class="muted">Choose an area to see its typical rent.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= MAP ================= -->
+    <section class="wrap section" id="map">
+      <div class="section-head">
+        <h2>District by district</h2>
+        <p class="sub">Dublin's postal districts, laid out roughly as they sit on the map. Select one for its full history and forecast.</p>
+      </div>
+      <div class="filters" role="radiogroup" aria-label="Map metric" id="metricBar"></div>
+      <div class="map-layout">
+        <div class="map-box card">
+          <div class="tilemap" id="tilemap"></div>
+          <div class="legend-seq" id="mapLegend"></div>
+          <p class="note" id="mapNote"></p>
+        </div>
+        <aside class="panel card" id="panel" aria-live="polite"></aside>
+      </div>
+    </section>
+
+    <!-- ================= FINDINGS ================= -->
+    <section class="band" id="findings">
+      <div class="wrap">
+        <div class="section-head"><h2>Five things the data says</h2></div>
+        <ol class="findings" id="findingsList"></ol>
+      </div>
+    </section>
+
+    <!-- ================= RENT VS BUY ================= -->
+    <section class="wrap section" id="buy">
+      <div class="section-head">
+        <h2>Rent vs buy</h2>
+        <p class="sub" id="buySub"></p>
+      </div>
+      <div class="two">
+        <figure class="card fig">
+          <figcaption><b>Gross rental yield by district</b><span class="muted">12 × average rent ÷ median sale price</span></figcaption>
+          <div id="yieldChart" class="chart"></div>
+          <details><summary>View as table</summary><div id="yieldTable"></div></details>
+        </figure>
+        <figure class="card fig">
+          <figcaption><b>Dublin average rent by size</b><span class="muted">New tenancies, € per month, RTB</span></figcaption>
+          <div id="bedsChart" class="chart"></div>
+          <details><summary>View as table</summary><div id="bedsTable"></div></details>
+        </figure>
+      </div>
+    </section>
+
+    <!-- ================= METHODS ================= -->
+    <section class="band" id="methods">
+      <div class="wrap methods">
+        <div class="section-head">
+          <h2>Methods &amp; evaluation</h2>
+          <p class="sub">Every model here is scored against simple baselines on data it never saw. If it didn't beat them, it wouldn't be here.</p>
+        </div>
+        <div class="method-grid" id="methodGrid"></div>
+        <div class="card prose">
+          <h3>Data</h3>
+          <ul>
+            <li><b>RTB Average Monthly Rent Report</b> (CSO table RIQ02, via the PxStat API): average rent for newly registered tenancies by location, bedrooms and property type, quarterly since 2007 Q4. Licensed CC BY 4.0.</li>
+            <li><b>Property Price Register</b> (Property Services Regulatory Authority): every residential sale since 2010. Non-market sales are excluded and VAT-exclusive new-build prices are grossed up by 13.5%. Sales are placed in a district from the Eircode routing key, or the address when there's no Eircode.</li>
+          </ul>
+          <h3>Limitations</h3>
+          <ul>
+            <li>RTB figures are <i>averages for new tenancies</i> in a segment, not listing prices; a specific flat can sit well outside the range for good reasons (condition, furnishing, exact location).</li>
+            <li>Postal-district averages after 2021 are reconstructed, not official; their validated error is shown above.</li>
+            <li>Gross yield ignores costs, vacancy and tax, and compares all-property averages; it's a market indicator, not an investment return.</li>
+          </ul>
+          <p class="muted" id="provenance"></p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <div class="wrap foot-inner">
+      <p>Built by <b>Prachiti Palande</b> · M.Sc. Computer Science, University College Dublin</p>
+      <p>
+        <a href="https://github.com/ppalande1903/dublin-rent-lens">Source on GitHub</a> ·
+        <a href="https://ppalande1903.github.io/pixel-portfolio/">Portfolio</a> ·
+        <a href="https://www.linkedin.com/in/prachiti-palande-947842284">LinkedIn</a>
+      </p>
+    </div>
+  </footer>
+
+  <div class="tip" id="tip" role="tooltip" hidden></div>
+  <script src="app.js"></script>
+</body>
+</html>
