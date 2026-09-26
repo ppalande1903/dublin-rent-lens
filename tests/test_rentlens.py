@@ -5,7 +5,7 @@ import pandas as pd
 import pytest
 
 from rentlens import data, districts, fair
-from rentlens.metrics import last_full_year, qlabel
+from rentlens.metrics import last_full_year, qlabel, yields
 from rentlens.pipeline import current_t
 
 
@@ -105,3 +105,20 @@ def test_conformal_calibration_reaches_nominal_coverage():
     p = m.predict_log(test)
     coverage = ((test.logr >= p.lo) & (test.logr <= p.hi)).mean()
     assert 0.74 <= coverage <= 0.88
+
+
+# ------------------------------------------------------------------ rent vs buy
+def test_yields_use_only_the_given_years_quarters_and_sales():
+    # 2024 is t = 65..68 (Q1..Q4); t = 64 is 2023 Q4 and t = 69 is 2025 Q1, which must not leak in.
+    rent = pd.DataFrame({"district": "D1", "t": [64, 65, 66, 67, 68, 69], "rent": [9999, 1900, 2000, 2000, 2100, 9999]})
+    sales = pd.DataFrame({
+        "district": ["D1", "D1", "D1", "D1", "D2"],
+        "date": pd.to_datetime(["2024-02-01", "2024-06-01", "2024-11-30", "2025-01-15", "2024-05-01"]),
+        "price": [300_000, 400_000, 500_000, 9_999_999, 350_000],
+    })
+    out = yields(sales, rent, 2024)
+    assert out.district.tolist() == ["D1"]  # D2 has sales but no rent, so it is dropped
+    row = out.iloc[0]
+    assert row.avg_rent == 2000 and row.median_price == 400_000 and row.n_sales == 3
+    assert row.gross_yield == pytest.approx(0.06)
+    assert row.price_to_rent == pytest.approx(1 / 0.06)

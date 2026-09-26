@@ -66,7 +66,7 @@ worse, so chain-linking stayed.
 
 ```bash
 python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
-.venv/bin/python -m pytest -q                 # 15 tests: parsing, leakage, reconstruction, conformal coverage
+.venv/bin/python -m pytest -q                 # 16 tests: parsing, leakage, reconstruction, conformal coverage, yields
 .venv/bin/python -m rentlens.pipeline --refresh   # ~4 min: fetch, clean, evaluate, fit, export site/data/*.json
 cd site && python3 -m http.server 8000        # open http://localhost:8000
 ```
